@@ -10,7 +10,15 @@ format: html
 execute:
   echo: true
 ---
+```{r initialization}
+# Install Reference Data
+remotes::install_github("ropensci/USAboundaries")
+remotes::install_github("ropensci/USAboundariesData")
+remotes::install_github("mikejohnson51/AOI")
+remotes::install_github("ropenscilabs/rnaturalearthdata")
+```
 ```{r setup}
+# Load libraries
 # spatial data science
 library(tidyverse)
 library(sf)
@@ -26,8 +34,10 @@ library(knitr)
 ```
 
 ```{r Question 1}
-
+# Define a projection
 eqdc <- '+proj=eqdc +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs'
+
+
 ```
 
 ```{r Question 2}
