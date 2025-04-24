@@ -1,0 +1,19 @@
+project: 
+  type: website
+  output-dir: docs
+  title: "CSU ESS 330"
+
+website:
+  title: "CSU ESS 330"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Course Overview
+      - href: exercise_summary.qmd
+        text: Daily Assignment Summary
+      - href: ./labs/lab_overview.qmd
+        text: Lab Overview
+        
+format:
+  html:
+    self-contained: true

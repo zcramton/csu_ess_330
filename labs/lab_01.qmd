@@ -1,0 +1,14 @@
+---
+title: "Lab 1: Website Design/Build"
+subtitle: 'ESS 330 - Quantitative Reasoning'
+author:
+  - name: "Zachary Cramton"
+    url: "https://zachary.cramton.com"
+    email: "ZCramton@colostate.edu"
+toc: true
+format: html
+execute:
+  echo: true
+---
+
+In this lab we built personal websites using github pages. It can be found at https://zachary.cramton.com.

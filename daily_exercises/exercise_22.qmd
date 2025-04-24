@@ -1,0 +1,120 @@
+---
+title: "Exercise 22: Forcast Modeling with Time Series Data"
+subtitle: 'ESS 330 - Quantitative Reasoning'
+author:
+  - name: "Zachary Cramton"
+    url: "https://zcramton.github.io"
+    email: "ZCramton@colostate.edu"
+
+format: html
+execute:
+  echo: true
+---
+```{r setup}
+# Load necessary libraries
+library(tidyverse)
+library(dataRetrieval)
+library(lubridate)
+library(timetk)
+library(modeltime)
+library(tidymodels)
+library(prophet)
+
+# Data import for: Cache la Poudre River at Mouth (USGS site 06752260)
+
+# Bringing in historical (training) data (2013-2023)
+poudre_hist_flow <- readNWISdv(siteNumber = "06752260",    # Download data from USGS for site 06752260
+                          parameterCd = "00060",      # Parameter code 00060 = discharge in cfs)
+                          startDate = "2013-01-01",   # Set the start date
+                          endDate = "2023-12-31") %>% # Set the end date
+  renameNWISColumns() %>%                             # Rename columns to standard names (e.g., "Flow", "Date")
+  mutate(date = floor_date(Date, "month")) %>%        # Convert to first day of each month
+  group_by(date) %>%                                  # Group the data by the new monthly Date
+  summarize(Flow = mean(Flow, na.rm = TRUE)) %>%      # Calculate the monthly average flow
+  ungroup()
+
+# Bring in recent (testing) data (2024)
+poudre_2024_obs_flow <- readNWISdv(siteNumber = "06752260",
+                          parameterCd = "00060",      
+                          startDate = "2024-01-01",  
+                          endDate = "2024-12-31") %>% 
+  renameNWISColumns() %>%                              
+  mutate(date = floor_date(Date, "month")) %>%        
+  group_by(date) %>%                                 
+  summarize(Flow = mean(Flow, na.rm = TRUE)) %>%     
+  ungroup()
+```
+
+```{r exercise 22 deliverable}
+# Log normalization for training data
+poudre_hist_flow <- poudre_hist_flow %>% 
+  mutate(log_flow = log1p(Flow))
+
+# Define forcasting models
+# Prophet model
+prophet_fit <- prophet_reg() %>% 
+  set_engine("prophet") %>% 
+  fit(log_flow ~ date, data = poudre_hist_flow)
+
+# ARIMA model
+arima_fit <- arima_reg() %>% 
+  set_engine("auto_arima") %>% 
+  fit(log_flow ~ date, data = poudre_hist_flow)
+
+# Combine models into modeltime table
+models_tbl <- modeltime_table(prophet_fit, arima_fit)
+
+# Fortcast the next 12 months w/ test data
+future_dates <- poudre_hist_flow %>% 
+  future_frame(.date_var = date, .length_out = 12)
+
+forcast_tbl <- models_tbl %>% 
+  modeltime_forecast(
+    new_data = future_dates,
+    actual_data = poudre_hist_flow,
+    keep_data = TRUE
+  ) %>% 
+  mutate(.value = expm1(.value)) # Back-transform predictions to original scale
+  
+# Join predicted vs observed for 2024
+comparison_tbl <- forcast_tbl %>% 
+  filter(.key == "prediction") %>% 
+  select(.model_desc, .index, .value) %>% 
+  rename(
+    predicted = .value,
+    date = .index,
+    model_desc = .model_desc
+  ) %>% 
+  inner_join(poudre_2024_obs_flow, by = "date") %>% 
+  rename(observed = Flow) %>% 
+    mutate(model_desc = case_when(
+    str_detect(model_desc, "ARIMA") ~ "ARIMA",
+    str_detect(model_desc, "PROPHET") ~ "Prophet",
+    TRUE ~ model_desc))
+
+# Compute R-sq values
+comparison_tbl %>%  
+  group_by(model_desc) %>% 
+  summarize(r2 = summary(lm(observed ~ predicted))$r.squared)
+
+# Plot Predicted vs Observed Forcast Values
+ggplot(comparison_tbl, aes(x = predicted, y = observed, color = model_desc)) +
+  geom_point(size = 2) +
+  geom_smooth(method = "lm", se = FALSE, linetype = "solid") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +
+  labs(
+    title = "Forcast (Predicted) vs Observed Monthly Flow for 2024",
+    subtitle = "Model comparison using ARIMA and Prophet",
+    x = "Predicted Flow (cfs)",
+    y = "Observed Flow (cfs)",
+    color = "Model"
+  ) +
+  theme_minimal() +
+  theme(legend.position =  "top",
+        plot.title = element_text(hjust = 0.5),  # Center title
+    plot.subtitle = element_text(hjust = 0.5)  # Center
+    ) +
+  coord_fixed(ratio = 1) +   # Ensures 1:1 aspect ratio
+  coord_cartesian(xlim= c(0, 600), ylim = c(0,600)) # Fix axis scales
+```
+
