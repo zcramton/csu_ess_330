@@ -3,7 +3,7 @@ title: "Exercise 22: Forcast Modeling with Time Series Data"
 subtitle: 'ESS 330 - Quantitative Reasoning'
 author:
   - name: "Zachary Cramton"
-    url: "https://zcramton.github.io"
+    url: "https://zachary.cramton.com"
     email: "ZCramton@colostate.edu"
 
 format: html

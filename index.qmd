@@ -1,0 +1,14 @@
+---
+title: "ESS 330 Course Overview"
+subtitle: 'ESS 330 - Quantitative Reasoning'
+author:
+  - name: "Zachary Cramton"
+    url: "https://zachary.cramton.com"
+    email: "ZCramton@colostate.edu"
+toc: true
+format: html
+execute:
+  echo: true
+---
+
+In ESS 330 I learned R while practicing data manipulation, analysis, visualization and modeling. I also built websites using Quarto, R and GitHub.

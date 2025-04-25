@@ -1,0 +1,53 @@
+---
+title: "Daily Exercise 05"
+subtitle: 'ESS 330 - Quantitative Reasoning'
+author:
+  - name: "Zachary Cramton"
+    url: "https://zachary.cramton.com"
+    email: "ZCramton@colostate.edu"
+toc: true
+format: html
+execute:
+  echo: true
+---
+```{r}
+# Attach the `palmerspenguins` package
+  library(palmerpenguins)
+
+# 1. Examine at the dataset using the ?Help page
+  #?penguins
+
+# 2. what is the class of the penguins dataset?
+  class(penguins)
+
+# 3. what is the structure of the penguins dataset?
+  str(penguins)
+
+# 4. what are the dimensions of the penguins dataset?
+  #Rows
+  dim(penguins)[1]
+  #Columns
+  dim(penguins)[2]
+
+# 5. what are the column names of the penguins dataset?
+  colnames(penguins)
+
+# 6. what type of data is `flipper_length_mm` and `Island`?
+  #flipper_length_mm: 
+  class(penguins$flipper_length_mm)
+  #Island: 
+  class(penguins$island)
+
+# 7. what is the mean flipper length of the penguins?
+  mean(penguins$flipper_length_mm, na.rm = TRUE)
+
+# 8. what is the standard deviation of flipper length in the penguins?
+  sd (penguins$flipper_length_mm, na.rm = TRUE)
+
+# 9. what is the median body mass of the penguins?
+  median(penguins$body_mass_g, na.rm = TRUE)
+
+# 10. what is the Island of the 100th penguin?
+  penguins$island[100]
+
+```

@@ -1,10 +1,10 @@
 project: 
   type: website
   output-dir: docs
-  title: "CSU ESS 330"
+  title: "CSU ESS 330 Course Summary"
 
 website:
-  title: "CSU ESS 330"
+  title: "CSU ESS 330 Course Summary"
   navbar:
     left:
       - href: index.qmd

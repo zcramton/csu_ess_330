@@ -1,0 +1,14 @@
+---
+title: "Exercise 24: Larimer County Cities"
+subtitle: 'ESS 330 - Quantitative Reasoning'
+author:
+  - name: "Zachary Cramton"
+    url: "https://zachary.cramton.com"
+    email: "ZCramton@colostate.edu"
+
+format: html
+execute:
+  echo: true
+---
+
+WIP Expected Completion by 2020/04/28

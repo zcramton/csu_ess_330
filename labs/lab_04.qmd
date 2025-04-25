@@ -1,0 +1,432 @@
+---
+title: "Lab 4: LTER Network Data"
+subtitle: 'ESS 330 - Quantitative Reasoning'
+author:
+  - name: "Zachary Cramton"
+    url: "https://zcramton.github.io"
+    email: "ZCramton@colostate.edu"
+toc: true
+execute:
+  echo: true
+format:
+  html:
+    self-contained: true
+---
+
+## Introduction to the Data
+```{r}
+# Install LTER Data Sampler
+#remotes::install_github("lter/lterdatasampler")
+
+# Install necessary libraries
+library(tidyverse)
+library(ggpubr)
+library(lterdatasampler)
+library(car)
+library(visdat)
+library(broom)
+library(flextable)
+
+# Retrieve the and_vertebrates data set
+?and_vertebrates
+
+# Explore data structure
+str(and_vertebrates)
+and_vertebrates %>% 
+  glimpse() %>% 
+  vis_dat()
+```
+### Part 1: Univariate and Bivariate Staistics
+## Guided Data Analysis Part 1
+```{r}
+## Guided Data Analysis Part 1
+and_vertebrates %>% 
+  filter(species == "Cutthroat trout") %>% 
+  drop_na(unittype) %>% 
+  count(unittype)
+
+trout_clean <- and_vertebrates %>% 
+  filter(species == "Cutthroat trout") %>%    # Filter for cutthroat
+  filter(unittype %in% c("C", "P", "SC")) %>%   # Filter for the 3 most abundant unittypes
+  drop_na(unittype, section)   # Drop NA values for unittype and section
+
+# Save Cutthroat trout table
+cont_table <- table(trout_clean$section, trout_clean$unittype)
+
+# Conduct chi-squared test on the Cutthroat trout data
+chisq.test(cont_table)
+
+# Plot the Cutthroat trout data
+
+# Bar plot
+trout_clean_barplot <- trout_clean %>% 
+  count(unittype, section) %>% 
+  ggbarplot(x = 'unittype', y = 'n',
+            fill = 'section',
+            palette = c("#00AFBB", "#E7B800"))
+
+# Box Plot
+trout_clean_boxplot <- trout_clean %>% 
+  drop_na(weight_g) %>% 
+  ggviolin(x = "section", y = "weight_g",
+           add = "boxplot",
+           color = "section",
+           palette = c("#00AFBB", "#E7B800"))
+  
+# T-Test Assumptions
+cc_weight <- trout_clean %>% 
+  filter(section == "CC") %>% 
+  pull(weight_g)
+
+og_weight <- trout_clean %>%  
+  filter(section == "OG") %>% 
+  pull(weight_g)
+
+var.test(cc_weight, og_weight)
+
+# Plot Histograms
+ggarrange(gghistogram(cc_weight, main = "Clear Cut"), gghistogram(og_weight, main = "Old Growth"))
+
+# Test log normalization
+var.test(log(cc_weight), log(og_weight))
+
+# Default t-test with log-normalized data
+t.test(log(trout_clean$weight_g) ~ trout_clean$section, var.equal = TRUE)
+
+# Welch Two Sample t-test
+t.test(trout_clean$weight_g ~ trout_clean$section, var.equal = FALSE)
+
+# Coastal Giant Salamander
+# Filter for salamander data
+sally_clean <- and_vertebrates %>% 
+  filter(species == "Coastal giant salamander") %>% 
+  drop_na(length_2_mm, weight_g)   # Remove NA values from the data.
+
+# Display salamander histograms
+ggarrange(gghistogram(sally_clean$length_2_mm, title = "Length"),
+gghistogram(sally_clean$weight_g, title = "Weight"))
+
+# Test for normal distribution
+s <- sally_clean  %>%  
+  slice_sample(n = 5000) 
+
+shapiro.test(s$length_2_mm)
+shapiro.test(s$weight_g)
+
+# Display log-normalized Salamander histograms
+ggarrange(
+ gghistogram(log(sally_clean$length_2_mm), title = "Length"), 
+ gghistogram(log(sally_clean$weight_g), title = "Weight") )
+
+# Correlation Test for Salamander Data
+cor.test(log(sally_clean$length_2_mm), log(sally_clean$weight_g))
+
+# Visualized correlation for Salamander Data
+sally_clean %>%
+  mutate(log_length = log(length_2_mm), log_weight = log(weight_g)) %>% 
+  ggscatter(x = 'log_length',
+            y = 'log_weight',
+            alpha = .35,
+            add = "loess")
+
+# Spearman Correlation Test for Salamander Data
+cor.test(sally_clean$length_2_mm, sally_clean$weight_g, method = "spearman")
+```
+
+# Part 1 Lab Exercise
+```{r}
+## Question 1-1: Conduct a chi-square test similar to the one carried out above, but test for a relationship between forest type (`section`) and channel unit (`unittype`) for Coastal giant salamander abundance.
+
+# Filter and clean salamander data
+sal_clean <- and_vertebrates %>% 
+  filter(species == "Coastal giant salamander") %>%    # Filter for salamanders
+  drop_na(unittype, section)   # Drop NA values for unittype and section
+
+# Save Salamander contingency table
+sal_cont_table <- table(sal_clean$section, sal_clean$unittype)
+
+
+# Chi-Sq Test for Section and Unittype
+sal_chisq_result <- chisq.test(sal_cont_table)
+
+# Box Plot for Chi-sqaure test
+sal_box_plot <- sal_clean %>% 
+  count(unittype, section) %>% 
+  ggpubr::ggbarplot(x = 'unittype', y = 'n',
+                    fill = 'section',
+                    palette = c("darkblue", "darkorange"),
+                    add = "mean_se")
+#ggsave("sal_chisq_test.png", plot = sal_box_plot, width = 10, height = 6)
+
+# Print Chi-sq results
+print(sal_chisq_result)
+print(sal_box_plot)
+
+
+## Question 1-2: Test the hypothesis that there is a significant difference in species biomass between clear cut and old growth forest types for the Coastal Giant salamander.
+
+
+# Clean theadditional data
+sal_clean <- sal_clean %>% 
+  drop_na(weight_g)
+
+# Equal Variance Test
+sal_cc_weight <- sal_clean %>% 
+  filter(section == "CC") %>% 
+  pull(weight_g)
+
+sal_og_weight <- sal_clean %>%  
+  filter(section == "OG") %>% 
+  pull(weight_g)
+
+var.test(sal_cc_weight, sal_og_weight)
+
+# Test for normal distribution
+sal <- sal_clean %>%  
+  slice_sample(n = 5000) 
+
+# Visualizing data normality
+ggarrange(gghistogram(sal_cc_weight, main = "Clear Cut"),
+          ggpubr::gghistogram(sal_og_weight, main = "Old Growth"))
+
+# Test log normalization
+var.test(log(sal_cc_weight), log(sal_og_weight))
+
+# Welch Two Sample t-test
+t.test(sal_clean$weight_g ~ sal_clean$section, var.equal = FALSE)
+
+
+## Question 1-3: Test the correlation between body length (snout to fork length) and body mass for Cutthroat trout. 
+
+# Find the length variable (?and_vertebrates conducted in Chunk #1).
+  # Variable is length_1_mm
+
+# Clean the data
+trout_clean <- and_vertebrates %>% 
+  filter(species == "Cutthroat trout") %>% 
+  drop_na(length_1_mm, weight_g)
+
+# Look at distribution of variables
+ggarrange(gghistogram(trout_clean$length_1_mm, title = "Length"),
+          gghistogram(trout_clean$weight_g, title = "Weight"))
+
+# Shapiro-Wilk normality test only runs for 5000 observations 
+trout_sample <- trout_clean %>% 
+  slice_sample(n = 5000)   # Adjust data frame to only contain 5000 obs.
+
+# Run S-W Norm Test for both vars
+shapiro.test(trout_sample$length_1_mm)
+shapiro.test(trout_sample$weight_g)
+
+# Log transform vizualization
+ggarrange(
+  gghistogram(log(trout_clean$length_1_mm), title = "Length"),
+  gghistogram(log(trout_clean$weight_g), title = "Weight")
+)
+
+# Spearman Correlation Test
+cor.test(trout_clean$length_1_mm, trout_clean$weight_g, method = "spearman")
+
+```
+### Question 1-1:
+  The chi-squared = 200.71, df = 5, p-value is less than 0.05 (P < 2.2e-16), which means that there is a statistically significant relationship between forest type and channel unit in regards to coastal giant salamander abundance. This supports rejecting the null hypothesis.
+
+### Question 1-2:
+  The results of the variance test suggest that the variences are not equal. The p-value is less than 0.05 (p < 1.439e-07). This supports rejecting the null hypothesis that the variances are equal.
+  Visualizing the normality of the data, it appears right skewed, suggesting that a log transformation should be used to normalize the data or that a Welsch t-test should be conducted. 
+  Testing log normalization returned a p-value less than 0.05 (p < 5.299e-03) meaning even after adjustment we must reject the null hypothesis that the data is normally distrubuted. Given that the log normalization didn' work a Welsh t-test is required.
+  The p-value for the Welch two sample t-test is less than 0.05 (p < 8.629e-07). This p-value supports rejecting the null hypothesis as the coastal giant salamander did not have the same weight in the two forest sections.
+  
+### Question 1-3:
+  Both variables appear skewed (not normally distributed). Shapiro-Wilk normality test used to confirm. The p-value is less than 0.05 for both (p < 2.2e-16), so we reject the null hypothesis, meaning that our data does not fit a normal distribution. 
+  The data can either be log-normalized or use the Pearson's correlation test or we can use the Spearman correlation test. The data appears to follow a non-normal distribution, requiring the Spearman correlation test.
+  The p-value is less than 0.05 (p < 2.2e-16), we reject the null. This supports a significant, positive relationship between length and weight for the Cutthroat trout. There is also a very high correlation coefficient.
+  
+### Part 2: Multivariate Statistics
+## Guided Data Analysis Part 2
+```{r}
+# Data set
+data("pie_crab")
+
+# Explore the data
+glimpse(pie_crab)
+vis_dat(pie_crab)
+?pie_crab
+
+# sample size per site
+count(pie_crab, site)
+summary(pie_crab)
+
+# ANOVA
+pie_crab |> 
+  ggboxplot(x = 'site', y = 'size', col = 'site') +
+  geom_jitter(size =.25) + 
+  theme(legend.postition = "none")
+
+# Assumptions 
+# Normality
+norms <- pie_crab |> 
+  nest(data = -site) |>
+  mutate(Shapiro = map(data, ~ shapiro.test(.x$size)),
+         n = map_dbl(data, nrow),
+         glance_shapiro = map(Shapiro, broom::glance)) |>
+  unnest(glance_shapiro)
+
+flextable::flextable(dplyr::select(norms, site, n, statistic, p.value)) |>
+  flextable::set_caption("Shapiro-Wilk normality test for size at each site")
+
+# Residuals
+(res_aov <- aov(size ~ site, data = pie_crab))
+gghistogram(res_aov$residuals)
+shapiro.test(res_aov$residuals)
+
+# Equal Variances
+leveneTest(size ~ site, data = pie_crab)
+
+# ANOVA Tests
+# Welch's ANOVA
+oneway.test(size ~ site, data = pie_crab, var.equal = FALSE)
+
+# Filter a subset of the sites
+pie_sites <- pie_crab |> 
+  filter(site %in% c("GTM", "DB", "PIE"))
+
+# Check for equal variance
+leveneTest(size ~ site, data = pie_sites)
+
+# Note that the variances are equal (p = 0.5802), so we can proceed with the ANOVA
+
+# ANOVA for the data subset
+pie_anova <- aov(size ~ site, data = pie_sites)
+
+# View the ANOVA results 
+summary(pie_anova)
+
+# Post-hoc Tukey's HSD Test
+TukeyHSD(pie_anova)
+
+# Linear Regression
+pie_lm <- lm(size ~ latitude, data = pie_crab)
+
+# View the results of the linear model
+summary(pie_lm)
+
+# Linear regression visualized
+pie_crab |> 
+  ggscatter(x = 'latitude', y = 'size', 
+            alpha = .35, 
+            add = "reg.line")
+
+# Predictions from linear regression
+new_lat <- data.frame(latitude = c(32, 36, 38))
+broom::augment(pie_lm, newdata = new_lat)
+
+# Multiple linear regression
+pie_mlm <- lm(size ~ latitude + air_temp + water_temp, data = pie_crab)
+
+summary(pie_mlm)
+
+# Test mlm for correlations
+pie_crab |> 
+  select(latitude, air_temp, water_temp) |> 
+  cor()
+```
+## Part 2 Lab Exercise
+```{r}
+## Prework for Question 2-1
+pie_crab %>% 
+  ggboxplot(x = 'site', y = 'size', col = 'site') +
+  geom_jitter(size =.25) +
+  theme(legend.position = "none")
+
+# Shapiro-Wilk Normality Test
+norms <- pie_crab %>%  
+  nest(data = -site) %>% 
+  mutate(Shapiro = map(data, ~ shapiro.test(.x$size)),
+         n = map_dbl(data, nrow),
+         glance_shapiro = map(Shapiro, broom::glance)) %>%
+  unnest(glance_shapiro)
+
+flextable(select(norms, site, n, statistic, p.value)) %>% 
+  set_caption("Shapiro-Wilk Normality Test for Size at Each Site")
+
+# Normal distribution check
+(res_aov <- aov(size ~ site, data = pie_crab))
+gghistogram(res_aov$residuals)
+shapiro.test(res_aov$residuals)
+
+# Levene's Test
+leveneTest(size ~ site, data = pie_crab)
+
+# Welch's ANOVA
+oneway.test(size ~ site, data = pie_crab, var.equal = FALSE)
+
+# Filter a subset of the sites
+pie_sites <- pie_crab |> 
+  filter(site %in% c("GTM", "DB", "PIE"))
+
+# Check for equal variance
+leveneTest(size ~ site, data = pie_sites)
+
+# Note that the variances are equal (p = 0.5802), so we can proceed with the ANOVA
+
+# ANOVA for the data subset
+pie_anova <- aov(size ~ site, data = pie_sites)
+
+# View the ANOVA results 
+summary(pie_anova)
+
+# Post-hoc Tukey's HSD Test
+TukeyHSD(pie_anova)
+
+## Question 2-1
+# Organize by latitude
+pie_crab <- pie_crab %>% 
+  arrange(latitude) %>% 
+  mutate(site = factor(site, levels = unique(site)))
+
+# Plot data
+box_plot_crab_sites <- ggplot(pie_crab, aes(x = site, y = size)) +
+  geom_boxplot(fill = "orange", color = "black") +
+  geom_jitter(size =.25) +
+  labs(title = "Carapace Width by Site, Ordered by Latitude",
+       x = "Site",
+       y = "Carapace Width (mm)") +
+  theme_minimal()   
+print(box_plot_crab_sites)
+
+#ggsave("box_plot_crab_sites.png", plot = box_plot_crab_sites, width = 10, height = 6, dpi = 300)
+
+## Question 2-2
+# Linear regression model
+pie_lm_water <- lm(size ~ water_temp_sd, data = pie_crab)
+summary(pie_lm_water)
+
+# Linear Regression Line of Best fit
+LOBF <- pie_crab %>% 
+  ggscatter(x = 'water_temp_sd', y = 'size',
+  alpha = .35,
+  add = "reg.line")
+print(LOBF)
+#ggsave("LOBF.png", plot = LOBF, width = 10, height = 6, dpi = 300)
+
+## Question 2-3
+# Check for correlations
+pie_crab %>% 
+  dplyr::select(latitude, air_temp_sd, water_temp_sd) %>% 
+  cor()
+
+# Multiple linear regression model
+crab_mlm <- lm(size ~ latitude + air_temp_sd + water_temp_sd, data = pie_crab)
+summary(crab_mlm)
+```
+### Question 2-1:
+  The results of the ANOVA test are highly significant. At least one site has significantly different carapace widths than the other sites. We know this because the p-value is less than 0.05 (p < 2.2e-16), leading us to reject the null hypothesis.
+  The Tukey's HSD Test shows us that the site relationships: GTM-DB, PIE-DB, and PIE-GTM are statistically significant, because their p-values are all less than 0.05. This represents that each of these related sites are significantly different from each other.
+  
+### Question 2-2:
+  The p-value is greater than 0.05, we fail to reject the null hypothesis. There is not enough statistical evidence to represent a significant relationship between water_temp_sd and crab carapace width.
+
+### Question 2-3:
+  air_temp_sd and latitude have a higher correlation coefficient, with it being greater than 0.7 (0.79321301), but water_temp_sd and air_temp_sd, and latitude and water_temp_sd, are not highly correlated. Highly correlated variables increase the complexity of the linear regression model. 
+  The overall p-value is less than 0.05 (p < 2.2e-16), suggesting a significant impact from the combination of predictors on crab carapace width. The individual p-values vary. Latitude is the only one less than 0.05, meaning it is the only statistically significant relationship with an effect on crab size. air_temp_sd and water_temp_sd both have p-values greater than 0.05, failing to reject the null hypothesis. There is not enough statistical evidence to represent a statistically significant relationship between these two predictors and crab carapace width.

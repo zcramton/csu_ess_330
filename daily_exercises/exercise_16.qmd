@@ -1,0 +1,117 @@
+---
+title: "Daily Exercise 16: Building a ML Workflow"
+subtitle: 'ESS 330 - Quantitative Reasoning'
+author:
+  - name: "Zachary Cramton"
+    url: "https://zachary.cramton.com"
+    email: "ZCramton@colostate.edu"
+toc: true
+format: html
+execute:
+  echo: true
+---
+```{r}
+# Zachary Cramton
+# 25 March 2025
+# ESS 330 - Daily Assignment 15/16
+# This daily assignment uses the penguins dataset to practice seeding, splitting and cross validation.
+
+# Load necessary libraries and data
+library("tidymodels")
+library("rsample")
+library("palmerpenguins")
+library("ranger")
+data("penguins")
+
+# ---- Exercise 15: Data Cleaning and Splitting ---
+
+# Clean and view the penguins df
+penguins <- drop_na(penguins)
+str(penguins)
+glimpse(penguins)
+
+# Set the seed
+set.seed(101991) # Random seed borrowed from lecture
+
+#Extract the training and testing sets with 70/30 split stratified by species.
+penguins_strata <- initial_split(penguins, strata = species, prop = 0.7)
+
+# Check test split
+100/333
+
+# Extract split data
+penguins_train <- training(penguins_strata)
+penguins_test <- testing(penguins_strata)
+
+# Print tibbles for train/test data
+penguins_train
+penguins_test
+
+# Resampling
+set.seed(3214) # Set resampling seed with random number from the lecture
+
+# Conduct 10-Fold Cross-Validation
+nrow(penguins_train) * 1/10
+
+vfold_cv(penguins_train, v = 10)
+penguin_folds <- vfold_cv(penguins_train)
+penguin_folds$splits[1:3]
+
+
+# ---- Day 16: Model Fitting and Workflow ----
+
+# Define logistic regression model
+log_reg_model <- multinom_reg() %>% 
+  set_engine("nnet") %>% 
+  set_mode("classification")
+
+# Define random forest model
+rand_forest_model <- rand_forest() %>% 
+  set_engine("ranger") %>%   # Default for rand_forest() model
+  set_mode("classification")
+
+# Define recipe for pre-processing
+penguin_recipe <- recipe(species ~., data = penguins_train) %>% 
+  step_normalize(all_numeric_predictors())   # Normalizes predictor vars for mean = 0 and variance = 1
+
+# Create workflows to keep models and recipes (preprocessing) together.
+log_ref_wf <- workflow() %>% 
+  add_model(log_reg_model) %>%    # Adds log_reg_model to the wf
+  add_recipe(penguin_recipe)  # Adds normalization recipe
+
+rand_forest_wf <- workflow() %>% 
+  add_model(rand_forest_model) %>% # Adds rand_forest model to the wf
+  add_recipe(penguin_recipe)   # Adds normalization recipe
+
+# Compare models with a workflow set
+model_set <- workflow_set(
+  preproc = list(recipe = penguin_recipe),   # Apply the same preprocessing (normalization) recipe to all models
+  models = list(logistic_regression = log_reg_model, 
+                random_forest = rand_forest_model)
+)
+
+# Fit models using resampling
+set.seed(34215)   # Randomly selected seed
+results <- model_set %>% 
+  workflow_map("fit_resamples", 
+               resamples = penguin_folds, 
+               metrics = metric_set(accuracy))   # Fit models using cross validation
+
+# Rank models by accuracy
+ranked_results <- rank_results(results, rank_metric = "accuracy")
+print(ranked_results)   # Print results
+
+# Comment: 
+# Using a standard logistic_reg model the mean accuracy was ~0.638 with poor stability. 
+  # The rand_forest model was far superior in this case.
+# As the logistic_reg model is set up for binary outcomes not multiclass classification,
+  # I used a different log_reg_model type.
+# The multinom_reg model allows for multiclass classificiation with the nnet engine 
+  # handling more than two classes.
+
+# After switching to the multinom_reg model, it outperformed the random_forest 
+  # model by ~0.004 in mean accuracy making it the better model for accuracy.
+# However, the random_forest model outperformed the multinom_reg model by ~0.002 
+  # in accuracy std. error making the random_forest model the better choice for stability.
+```
+

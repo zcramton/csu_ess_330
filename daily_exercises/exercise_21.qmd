@@ -1,0 +1,80 @@
+---
+title: "Exercise 21: Vizualizing Time Series"
+subtitle: 'ESS 330 - Quantitative Reasoning'
+author:
+  - name: "Zachary Cramton"
+    url: "https://zachary.cramton.com"
+    email: "ZCramton@colostate.edu"
+
+format: html
+execute:
+  echo: true
+---
+```{r setup}
+library(dataRetrieval)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+library(zoo)
+library(tsibble)
+library(plotly)
+library(feasts)
+
+# Bringing in Data
+# Timeseries Example
+# Cache la Poudre River at Mouth (USGS site 06752260)
+poudre_flow <- readNWISdv(siteNumber = "06752260",    # Download data from USGS for site 06752260
+                          parameterCd = "00060",      # Parameter code 00060 = discharge in cfs)
+                          startDate = "2013-01-01",   # Set the start date
+                          endDate = "2023-12-31") |>  # Set the end date
+  renameNWISColumns() |>                              # Rename columns to standard names (e.g., "Flow", "Date")
+  mutate(Date = yearmonth(Date)) |>                   # Convert daily Date values into a year-month format (e.g., "2023 Jan")
+  group_by(Date) |>                                   # Group the data by the new monthly Date
+  summarise(Flow = mean(Flow))                       # Calculate the average daily flow for each month
+```
+
+```{r exercise 21 deliverables pt 1}
+# 1. Convert to tsibble
+poudre_ts <- poudre_flow %>% 
+  as_tsibble(index = Date)
+
+# 2. Plot and animate the time series
+ts_plot <- ggplot(poudre_ts, aes(x = Date, y = Flow)) +
+  geom_line(color = "steelblue") +
+  labs(title = "Poudre River Flow",
+       x = "Date",
+       y = "Flow (cfs)") +
+  theme_minimal()
+
+ggplotly(ts_plot)
+
+# 3. Subseries Plot
+subseries_plot <- gg_subseries(poudre_ts, Flow) +
+  labs(
+    title = "Montly Streamflow: Cache la Poudre River (2013-2023)",
+    subtitle = "Each panel show the avg. streamflow (cfs) for a given month over 10 years.",
+    x = "Date",
+    y = "Average Monthly Flow (cfs)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 12),
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = -1),
+  )
+
+ggplotly(subseries_plot)
+```
+
+3. The subseries in this example represent months, and seasons are defined by the average monthly flow rate. In hydrology and river ecology seasons are really more binary than in human perception. There are wet and dry seasons as well as hot or cold seasons although the latter to a lesser extent.
+```{r exercise 21 deliverables pt 2}
+# 4. Decomposition using STL
+decomp <- poudre_ts %>% 
+  model(STL(Flow ~ season(window = "periodic"))) %>% 
+  components()
+
+autoplot(decomp)
+```
+4. In general the decomposition shows the flow decreasing over time but also becoming more volatile over time, particularly in the wet months. While the base flows do decrease slightly the trend shows a much clearer difference; such a difference may be better reflected in the consistency or stability of the flow reigeme.

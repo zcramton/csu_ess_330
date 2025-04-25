@@ -1,0 +1,56 @@
+---
+title: "Daily Exercise 15: Data Splitting"
+subtitle: 'ESS 330 - Quantitative Reasoning'
+author:
+  - name: "Zachary Cramton"
+    url: "https://zachary.cramton.com"
+    email: "ZCramton@colostate.edu"
+toc: true
+format: html
+execute:
+  echo: true
+---
+```{r}
+# 25 March 2025
+# This daily assignment uses the penguins dataset to practice seeding, splitting and cross validation.
+
+# Load necessary libraries and data
+library("tidymodels")
+library("rsample")
+library("palmerpenguins")
+data("penguins")
+
+# Clean and view the penguins df
+penguins <- drop_na(penguins)
+str(penguins)
+glimpse(penguins)
+
+# Set the seed
+set.seed(101991) # Random seed borrowed from lecture
+
+#Extract the training and testing sets with 70/30 split stratified by species.
+penguins_strata <- initial_split(penguins, strata = species, prop = 0.7)
+
+# Check test split
+100/333
+
+# Extract split data
+penguins_train <- training(penguins_strata)
+penguins_test <- testing(penguins_strata)
+
+# Print tibbles for train/test data
+penguins_train
+penguins_test
+
+# Resampling
+set.seed(3214) # Set resampling seed with random number from the lecture
+
+# Conduct 10-Fold Cross-Validation
+nrow(penguins_train) * 1/10
+
+vfold_cv(penguins_train, v = 10)
+penguin_folds <- vfold_cv(penguins_train)
+penguin_folds$splits[1:3]
+
+```
+

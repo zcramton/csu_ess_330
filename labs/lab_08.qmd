@@ -1,0 +1,230 @@
+---
+title: "Lab 8: Tuning ML Models of Hydrological Data"
+subtitle: 'ESS 330 - Quantitative Reasoning'
+author:
+  - name: "Zachary Cramton"
+    url: "https://zachary.cramton.com"
+    email: "ZCramton@colostate.edu"
+toc: true
+format: html
+execute:
+  echo: true
+---
+```{r setup/EDA}
+library(tidymodels)
+library(recipes)
+library(yardstick)
+library(ggthemes)
+library(ggplot2)
+library(workflowsets)
+library(patchwork)
+library(ggfortify)
+library(parsnip)
+library(tidyverse)
+library(visdat)
+library(powerjoin)
+library(skimr)
+library(xgboost)
+library(dplyr)
+library(purrr)
+library(patchwork)
+library(glue)
+library(vip)
+library(baguette)
+
+# Data Import/Tidy/Transform	
+root  <- 'https://gdex.ucar.edu/dataset/camels/file'
+download.file('https://gdex.ucar.edu/dataset/camels/file/camels_attributes_v2.0.pdf', 
+              'data/camels_attributes_v2.0.pdf')
+types <- c("clim", "geol", "soil", "topo", "vege", "hydro")
+
+# Where the files live online ...
+remote_files  <- glue('{root}/camels_{types}.txt')
+# where we want to download the data ...
+
+local_files   <- glue('data/camels_{types}.txt')
+walk2(remote_files, local_files, download.file, quiet = TRUE)
+
+# Read and merge data
+camels <- map(local_files, read_delim, show_col_types = FALSE) 
+camels <- power_full_join(camels ,by = 'gauge_id') 
+
+# Add log(q_mean) to df
+camels <- camels %>% 
+  mutate(logQmean = log(q_mean)) %>% 
+  mutate(across(everything(), as.double))
+
+skim(camels)
+vis_dat(camels)
+
+```
+
+```{r Modified Lab 6 Code}
+# Set seed
+set.seed(567)
+
+# Generate the split
+camels_split <- initial_split(camels, prop = 0.8)
+camels_tr <- training(camels_split)
+camels_te  <- testing(camels_split)
+
+# Cross-validation folds
+camels_10cv <- vfold_cv(camels_tr, v = 10)
+
+# Recipe
+rec <- recipe(logQmean ~ pet_mean + p_mean + aridity + runoff_ratio + baseflow_index + slope_mean + area_geospa_fabric, data = camels_tr) %>% 
+  step_YeoJohnson(all_predictors()) %>% 
+  step_interact(terms = ~ pet_mean:p_mean + aridity:runoff_ratio + area_geospa_fabric:slope_mean) %>% 
+  step_corr(all_predictors(), threshold = 0.9) %>%   # Remove highly correlated predictors to avoid multicollinearity.
+  step_normalize(all_predictors()) %>% 
+  step_naomit(all_predictors(), all_outcomes())
+
+# Define and Train Models
+  ## Define rf model
+  rf_model <- rand_forest() %>% 
+    set_engine("ranger") %>% 
+    set_mode("regression")
+  
+  rf_wf <- workflow() %>%
+    # Add the recipe
+    add_recipe(rec) %>%
+    # Add the model
+    add_model(rf_model) %>%
+    # Fit the model
+    fit(data = camels_tr)
+   
+  rf_predictions <- augment(rf_wf, new_data = camels_te) 
+
+  ## Define xg model
+  xg_model <- boost_tree() %>% 
+    set_engine("xgboost") %>% 
+    set_mode("regression")
+  
+  xg_wf <- workflow() %>%
+    # Add the recipe
+    add_recipe(rec) %>%
+    # Add the model
+    add_model(xg_model) %>%
+    # Fit the model
+    fit(data = camels_tr)
+  
+  xg_predictions <- augment(xg_wf, new_data = camels_te)
+  
+  ## Define nueral net model
+  nn_model <- bag_mlp() %>% 
+    set_engine("nnet") %>% 
+    set_mode("regression")
+  
+  nn_wf <- workflow() %>%
+    # Add the recipe
+    add_recipe(rec) %>%
+    # Add the model
+    add_model(nn_model) %>%
+    # Fit the model
+    fit(data = camels_tr)
+  
+  nn_predictions <- augment(nn_wf, new_data = camels_te)
+  
+  ## Define linear reg model
+  lm_model <- linear_reg() %>% 
+    set_engine("lm") %>% 
+    set_mode("regression")
+  
+  lm_wf <- workflow() %>%
+    # Add the recipe
+    add_recipe(rec) %>%
+    # Add the model
+    add_model(lm_model) %>%
+    # Fit the model
+    fit(data = camels_tr)
+  
+  lm_predictions <- augment(lm_wf, new_data = camels_te) 
+  
+  # Implement workflowset analysis
+  
+  ml_wf_set <- workflow_set(preproc = list(rec),
+                          models = list(rf = rf_model, 
+                                        xg = xg_model, 
+                                        nn = nn_model, 
+                                        lm = lm_model)) %>%
+  workflow_map('fit_resamples', resamples = camels_10cv) 
+  
+autoplot(ml_wf_set)
+
+rank_results(ml_wf_set, rank_metric = "rsq", select_best = TRUE)
+```
+
+```{r Lab 8}
+# model tuning
+tuned_nn_model <- bag_mlp(
+  hidden_units = tune(), 
+  penalty = tune()
+) %>%
+  set_engine("nnet") %>%
+  set_mode("regression")
+
+wf_tune <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(tuned_nn_model)
+
+dials <- extract_parameter_set_dials(wf_tune)
+
+# define search space
+my.grid <- grid_space_filling(dials, size = 20)
+
+model_params <-  tune_grid(
+    wf_tune,
+    resamples = camels_10cv,
+    grid = my.grid,
+    metrics = metric_set(rmse, rsq, mae),
+    control = control_grid(save_pred = TRUE)
+  )
+autoplot(model_params)
+
+collect_metrics(model_params)
+best_mae <- show_best(model_params, metric = "mae", n = 1)
+hp_best <- select_best(model_params, metric = "mae")
+#> The first row shows the mean MAE across resamples, SE of the MAE estimate, # of resamples, and mean SE. Penalty is the best hyperparameter set for this model. 
+
+final_wf <- finalize_workflow(wf_tune, hp_best)
+final_fit <- last_fit(final_wf, split = camels_split)
+final_metrics <- collect_metrics(final_fit)
+
+# The final model's rmse 0.010 and the rsq is 0.999. This means that 99.9% of the variance is explained by the model. This is an excellent number and result. The rmse is the average prediction error, and this percentage is ~1% which is quite good. This model is very good, but may be less efficient than more simple models which are less demanding computationally with worse but still acceptable values for rsq and rmse.
+
+predictions <- collect_predictions(model_params)
+
+ggplot(predictions, aes(x = .pred, y = logQmean)) +
+  geom_smooth(method = lm, color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  scale_color_gradient() +
+  labs(
+    title = "Actual vs. Predicted Values", 
+    x = "Predicted", 
+    y = "Actual")
+
+final_fit_full <- fit(final_wf, data = camels)
+augmented_preds <- augment(final_fit_full, new_data = camels)
+
+augmented_preds <- augmented_preds %>% 
+  mutate(residual_sq = (logQmean - .pred)^2)
+
+map_preds <- ggplot(augmented_preds, aes(x = .pred, y = logQmean)) +
+  geom_point(aes(color = .pred), size = 3, alpha = 0.8) +
+  scale_color_viridis_c(name = "Predicted") +
+  coord_fixed() +
+  labs(title = "Map of Predicted logQmean") +
+  theme_minimal()
+
+map_resid <- ggplot(augmented_preds, aes(x = .pred, y = residual_sq)) +
+  geom_point() +
+  scale_color_viridis_c(name = "Residual²") +
+  labs(title = "Map of Squared Residuals") +
+  theme_minimal()
+
+maps_combined <- map_preds | map_resid
+
+print(maps_combined)
+
+```
+

@@ -1,0 +1,109 @@
+---
+title: "Daily Assignment 11/12: Air Quality and EDA Modeling"
+subtitle: 'ESS 330 - Quantitative Reasoning'
+author:
+  - name: "Zachary Cramton"
+    url: "https://zachary.cramton.com"
+    email: "ZCramton@colostate.edu"
+format: html
+execute:
+  echo: true
+toc: true
+---
+
+```{r}
+library(tidyverse)  # For data wrangling
+library(recipes)    # For data preprocessing
+library(broom)      # For model diagnostics
+library(ggpubr)     # For visualization
+
+# Load the airquality data set
+data("airquality")
+
+# Remove rows where Ozone is NA before preprocessing
+airquality <- airquality %>% drop_na(Ozone)
+```
+
+```{r}
+# Part 1: Normality Testing
+# Explore data set structure
+str(airquality)
+summary(airquality)
+
+# Perform Shapiro-Wilk test for normality
+shapiro.test(airquality$Ozone)
+shapiro.test(airquality$Temp)
+shapiro.test(airquality$Solar.R)
+shapiro.test(airquality$Wind)
+```
+The Shapiro-Wilk test is used to assess whether a data set follows a normal distribution. It is useful to confirm normality before conduting or running tests which assume normality (i.e. linear regressions).
+
+Hypotheses for Shapiro-Wilk Tests:
+Null: The data is normally distributed.
+Alt.: The data is not normally distributed.
+
+If the p-value is > 0.05 then, FTR the null; the data is likely normal and doesn't show significant non-normality. if the p-value is < 0.05 the, reject the null; the data is likely not normally distributed as it shows significant differences from a normal distribution.
+
+In this case, Ozone and Solar r. have p-values less than 0.05 meaning those data are likely not normally distributed. The Wind and Temp variables have a p-value > 0.05 meaning the data are likely normally distributed.
+
+```{r}
+# Part 2: Data Transformation and Feature Engineering
+# Convert Month into seasons using case_when()
+airquality <- airquality %>%
+  mutate(Season = case_when(
+    Month %in% c(11, 12, 1) ~ "Winter",
+    Month %in% c(2, 3, 4) ~ "Spring",
+    Month %in% c(5, 6, 7) ~ "Summer",
+    Month %in% c(8, 9, 10) ~ "Fall"
+  ))
+
+# Check observations per season
+table(airquality$Season)
+```
+There are 116 observations in the airquality data set, with 61 from the summer months and 55 from the fall months. There are no spring or winter records in the data.
+```{r}
+# Part 3: Data Preprocessing
+# Normalize predictor variables
+rec <- recipe(Ozone ~ Temp + Solar.R + Wind + Season, data = airquality) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_impute_mean(all_numeric_predictors())
+
+prep_rec <- prep(rec)
+processed_data <- bake(prep_rec, new_data = NULL)
+```
+Normalizing data rescales values to have a mean of 0 and standard deviation of 1. This allows predictors to contribute to a model equally instead of veriables with large magnitudes having more weight in the analysis.
+
+The step_impute_mean() function from the recipies package is used to impute missing values with the mean of the variable.
+
+It's necessary to prep() and bake() the recipie because prep() calculates necessary statistics (i.e. mean for imputation and scaling factors for normalization) while bake applies the transformation. Without prep() theres no transformation to apply without bake() the transformation doesn't get applied.
+```{r}
+# Part 4: Building a Linear Regression Model
+lm_model <- lm(Ozone ~ ., data = processed_data)
+summary(lm_model)  # Interpret coefficients, R-squared, and p-values
+```
+This model is attempting to estimate changes in ozone based on the predictor variables. In this case, the coefficients represent the estimated change in ozone for a one-unit change in the associated predictor variable. A positive coefficient means that ozone will increase with increases in the predictor variable while a negative change indicates that ozone will decrease when the predictor variable increases. The R-squared number assesses how well the model explains variability in the y-axis/independent variable where 1 means  the model explains all of the y variability and 0 indicated the model explains none of the y variability. Small p-values (< 0.05) indicate that the predictor significantly impacts the modeled ozone levels while large p-values (> 0.05) may indicate lack of statistical significance. The predicted ozone level when all predictors are zero is 40.034 (ppb)(intercept coeff.). The predictor variables from least to greatest impact are (coeff. magnitude): Temp, Wind and Solar R. 
+
+```{r}
+# Part 5: Model Diagnostics
+# Supplement data with fitted values and residuals
+model_results <- augment(lm_model, processed_data)
+
+# Extract residuals and visualize their distribution
+histogram <- ggplot(model_results, aes(.resid)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.5) +
+  ggtitle("Residuals Histogram")
+
+residuals_plot <- ggqqplot(model_results$.resid) +
+  ggtitle("QQ Plot of Residuals")
+
+# Arrange plots side by side
+ggarrange(histogram, residuals_plot, ncol = 2, nrow = 1)
+
+# Scatter plot of actual vs. predicted values
+ggscatter(model_results, x = "Ozone", y = ".fitted",
+          add = "reg.line", conf.int = TRUE,
+          cor.coef = TRUE, cor.method = "spearman",
+          ellipse = TRUE)
+
+```
+With some large residuals, the predictions may not be particularly accurate. The median close to 0 suggests a relatively balanced residual distribution. Temp, Solar.R and Wind are statistically significant and contribute to the model while season is not and it may not be useful. Overall, the model has an R = 0.83 indicating a strong, positive correlation between the model and the observed data. With a very small p-value << 0.05 the model is fairly strong and has a high likelihood of accurately predicting the observed data.

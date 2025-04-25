@@ -1,0 +1,77 @@
+---
+title: "Daily Exercise 08"
+subtitle: 'ESS 330 - Quantitative Reasoning'
+author:
+  - name: "Zachary Cramton"
+    url: "https://zachary.cramton.com"
+    email: "ZCramton@colostate.edu"
+toc: true
+format: html
+execute:
+  echo: true
+---
+
+```{r}
+# 20 Feburary 2025
+# This is the R script for assignment 08 where the COVID-19 data from 
+# assignment 06 will be visualized expanding on the visualization from
+# assignment 07.
+
+# Prepare packages
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(datasets)
+library(scales)
+
+#Read in and store NY-Times Data
+covid <- read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv")
+
+# Create state-region data frame
+df <- data.frame(region = state.region,
+                 abbr = state.abb,
+                 state = state.name)
+
+# Check data frame
+head(df)
+
+# Join df to covid data
+covid_joined <- inner_join(df,covid, by = "state")
+
+# Aggregate (Split-apply) COVID-19 data based on region.
+covid_summary <- covid_joined %>% 
+  group_by(region, date) %>% #Split by region and date
+  summarize(
+    Cases = sum(cases/1000, na.rm = TRUE), #Apply sum function
+    Deaths = sum(deaths/1000, na.rm = TRUE)
+  )
+  
+# Pivot data from to long format
+covid_long <- covid_summary %>% 
+  pivot_longer(cols = c(Cases, Deaths), 
+              names_to = "metric", 
+              values_to = "count")
+
+# Plot the long data
+us_regional_covid_trends = ggplot(covid_long, aes(x = date, y = count, color = region)) +
+  geom_line() +
+  facet_grid(metric~region, scales = "free_y",) +
+  labs(title = "COVID-19 Cases and Deaths by Region",
+       subtitle = "Since 2020 (per 1,000 people)",
+       caption = "Based on NY-Times COVID-19 Data.",
+       x = "Date",
+       y = "Cumulative Cases",
+       color = "Regions") +
+  theme_bw() + 
+  theme(legend.position = "none",
+        axis.text.y = element_text(angle = 45, hjust = 1)) + 
+  scale_x_date(date_breaks = "8 month", date_labels = "%b %y") +
+  scale_y_continuous(labels = label_number())
+  
+# Save plot as an image
+ggsave(us_regional_covid_trends,
+      file = "img/us_regional_covid_trends.png",
+      width = 10,
+      height = 6)
+```
+
