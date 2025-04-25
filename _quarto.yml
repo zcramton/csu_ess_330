@@ -1,18 +1,21 @@
 project: 
   type: website
   output-dir: docs
-  title: "CSU ESS 330 Course Summary"
+  title: "CSU ESS 330 Coursework"
 
 website:
-  title: "CSU ESS 330 Course Summary"
   navbar:
     left:
       - href: index.qmd
         text: Course Overview
-      - href: exercise_summary.qmd
+      - href: ./exercise_summary.qmd
         text: Daily Assignment Summary
-      - href: ./labs/lab_overview.qmd
+      - href: ./lab_overview.qmd
         text: Lab Overview
+  page-footer:
+    background: light
+    left: Copyright 2025, Zachary Cramton
+    right: This website is built with [{{< fa brands github title="GitHub octocat logo" >}}](https://github.com/zcramton/zcramton.github.io){target=_blank}, [{{< fa brands r-project title="R Project" >}}](https://www.r-project.org/about.html){target=_blank} and [Quarto](https://quarto.org/){target=_blank}
         
 format:
   html:

@@ -42,7 +42,7 @@ types <- c("clim", "geol", "soil", "topo", "vege", "hydro")
 
 # Construct URLs and file names for the data
 remote_files <- glue('{root}/camels_{types}.txt')
-local_files <- glue('data/camels_{types}.txt')
+local_files <- glue('../data/lab_data/camels_{types}.txt')
 
 # Download specific data
 walk2(remote_files, local_files, download.file, quiet = TRUE)

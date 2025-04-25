@@ -1,0 +1,101 @@
+---
+title: "Homework Overview"
+author:
+  - name: "Zachary Cramton"
+    url: "https://zachary.cramton.com"
+    email: "ZCramton@colostate.edu"
+toc: true
+format: html
+execute:
+  echo: true
+---
+
+# Daily Exercises
+
+This page links to each daily exercise completed in the course. These exercises were assignments given roughly bi-weekly due before class each day.
+
+## Exercise Links
+
+-   Exercise 01
+
+    -   In this assignment we set up RStudio and practiced installing packages. No deliverable is available.
+
+-   Exercise 02
+
+    -   In this assignment we set up git and GitHub, linking RStudio to GitHub. No deliverable is available.
+
+-   Exercise 03
+
+    -   In this assignment we created our first GitHub repo, hello-world. This repo has now been privately archived.
+
+-   [Exercise 04](https://github.com/zcramton/exercise-04-csu){target="_blank"}
+
+    -   In this assignment we practiced forking other users repos. It is now publicly archived, the repo is linked.
+
+-   [Exercise 05](./daily_exercises/exercise_05.qmd){target="_blank"}
+
+    -   In this assginment we explored the 'palmerspenguins' package as an exercise in data manipulation in RStudio.
+
+-   [Exercise 06](./daily_exercises/exercise_06.qmd){target="_blank"}
+
+    -   In this assignment we practiced data manipulation using the public COVID-19 case data provided by the New York Times.
+
+-   [Exercise 07](./daily_exercises/exercise_07.qmd){target="_blank"}
+
+    -   In this assignment we practiced data visualization using the NY-Times COVID-19 data. This assignment was initially created and submitted as an R script and has been converted to a quarto document for the purposes of sharing documentation.
+
+-   [Exercise 08](./daily_exercises/exercise_08.qmd){target="_blank"}
+
+    -   In this assignment the NY-Times COVID-19 data was used to practice pivoting and joining data. This assignment was initially created and submitted as an R script and has been converted to a quarto document for the purposes of sharing documentation.
+
+-   Exercise 09 & 10
+
+    -   This assignment was not completed as two of the four daily assignments eligable to be dropped. No deliverable is available.
+
+-   [Exercise 11 & 12](./daily_exercises/exercise_11+12.qmd){target="_blank"}
+
+    -   In this assignment we practiced exploratory data analysis (EDA) and basic modeling with linear regressions using the 'airquality' dataset.
+
+-   Exercise 13
+
+    -   This assignment was a check-in completed on Canvas. No deliverable is available for this assignment.
+
+-   Exercise 14
+
+    -   In this assignment we explore open source data resources. No deliverable is available for this assignment, a list of potential data sources for the course project was submitted to canvas.
+
+-   [Exercise 15](./daily_exercises/exercise_15.qmd){target="_blank"}
+
+    -   In this assignment we practiced data splitting, seeding and ml model prep with the 'penguins' dataset. This assignment was initially created and submitted as an R script and has been converted to a quarto document for the purposes of sharing documentation.
+
+-   [Exercise 16](./daily_exercises/exercise_16.qmd){target="_blank"}
+
+    -   In this assignment we practiced ml model building and ml workflow building based on the work completed in exercise 15 with the 'penguins' dataset. This assignment was initially created and submitted as an R script and has been converted to a quarto document for the purposes of sharing documentation.
+
+-   Exercise 17
+
+    -   This assignment was a reading and brief concept summary completed on Canvas. No deliverable is available for this assignment.
+
+-   Exercise 18 & 19 (This link is under construction)
+
+    -   In this assignment we completed modeling tasks with the NY-Times COVID-19 and census data. Exercise 19 invovled tuning the basic model. This assignment was initially created and submitted as an R script and has been converted to a quarto document for the purposes of sharing documentation.
+
+-   Exercise 20
+
+    -   This assignment was replaced by in-class attendance for extra credit. There is no deliverable for this assignment.
+
+-   [Exercise 21](./daily_exercises/exercise_21.qmd){target="_blank"}
+
+    -   In this assignment we practiced visualizing time series data using USGS data from the Cache la Poudre watershed.
+
+-   [Exercise 22](./daily_exercises/exercise_22.qmd){target="_blank"}
+
+    -   In this assignment we practiced forcast modeling with time series data using USGS data from the Cache la Poudre watershed.
+
+-   [Exercise 23](./daily_exercises/exercise_23.qmd){target="_blank"}
+
+    -   In this assignment we setup geospatial packages in R and learned about some common tools, data sources and packages using R for GIS. This assignment was initially created and submitted to Canvas and has been converted to a quarto document for the purposes of sharing documentation.
+
+-   [Exercise 24](./daily_exercises/exercise_24.qmd){target="_blank"}
+
+    -   In this assignment we practiced working with Lairmer County geospatial data.

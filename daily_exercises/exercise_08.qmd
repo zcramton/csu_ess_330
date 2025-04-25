@@ -25,7 +25,7 @@ library(datasets)
 library(scales)
 
 #Read in and store NY-Times Data
-covid <- read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv")
+covid <- readr::read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv")
 
 # Create state-region data frame
 df <- data.frame(region = state.region,
@@ -69,9 +69,9 @@ us_regional_covid_trends = ggplot(covid_long, aes(x = date, y = count, color = r
   scale_y_continuous(labels = label_number())
   
 # Save plot as an image
-ggsave(us_regional_covid_trends,
-      file = "img/us_regional_covid_trends.png",
-      width = 10,
-      height = 6)
+#ggsave(us_regional_covid_trends,
+     # file = "img/us_regional_covid_trends.png",
+     # width = 10,
+     # height = 6)
 ```
 

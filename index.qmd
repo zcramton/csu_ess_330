@@ -1,6 +1,5 @@
 ---
-title: "ESS 330 Course Overview"
-subtitle: 'ESS 330 - Quantitative Reasoning'
+title: "Course Overview"
 author:
   - name: "Zachary Cramton"
     url: "https://zachary.cramton.com"

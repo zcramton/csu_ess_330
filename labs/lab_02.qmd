@@ -10,11 +10,14 @@ format: html
 execute:
   echo: true
 ---
-```{r}
+```{r, cache=TRUE}
 library(quarto)
 library(dplyr)
 library(tidyr)
-tree_dat <- read.csv("data/tree_dat.csv")
+library(here)
+
+# Data Import
+tree_dat <- read.csv(here("data", "lab_data", "tree_dat.csv"))
 ```
 
 ```{r}
@@ -252,6 +255,5 @@ fastest_species
 print("Slowest Growing Species:")
 slowest_species
 ```
-![Botanical sketch of Pinus resinosa, red pine, the fastest growing species in the data base.](images\pinus_resinosa.jpg)
 
 Question 21: The three fastest growing species are Pinus resinosa, Populus tremuloides and Pinus banksiana. The three slowest growing species are Larix laricina, Thuja occidentalis, Quercus rubra. The fastest growth rate was ~0.358 cm per year at breast height. The slowest growth rate was ~0.150 cm per year at breast height.

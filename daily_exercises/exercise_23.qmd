@@ -12,9 +12,12 @@ execute:
 ---
 
 ```{r}
-sf:sf_extSoftVersion()
+library(sf)
+library(terra)
 
-terra:gdal()
+sf::sf_extSoftVersion()
+
+terra::gdal()
 ```
 
 ### GDAL: Geospatial Data Abstraction Library
