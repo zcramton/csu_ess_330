@@ -11,4 +11,49 @@ execute:
   echo: true
 ---
 
-WIP Expected Completion by 2020/04/28
+```{r Setup}
+library(tidymodels)
+library(tidyverse)
+library(ggrepel)
+library(sf)
+library(readr)
+library(AOI)
+
+us_cities <- read_csv("../data/assignment_data/simplemaps_uscities_basicv1.90/uscities.csv")
+```
+```{r Assignment Deliverable}
+# Convert us_cities df to an sf object using lng and lat
+cities_sf <- st_as_sf(us_cities, coords = c("lng", "lat"), crs = 4326)
+
+# Get the spatial boundary of Larimer County, CO
+boundary <- aoi_get(state = "CO", county = "Larimer")
+
+# Filter cities located in Larimer County
+larimer_cities <- cities_sf %>% 
+  filter(county_name == "Larimer")
+
+# Identify the top 3 most populous cities in Larimer County
+top_3_cities <- larimer_cities %>% 
+  slice_max(population, n = 3)
+
+# Create spatial plot (map)
+larimer_pop_map <- ggplot() +
+  geom_sf(data = boundary, fill = NA, color = "black", size = 1) +
+  geom_sf(data = larimer_cities, fill = "lightgray", color = "darkgray") +
+  geom_sf(data = top_3_cities, color = "red", size = 3) +
+  theme_void() +
+  labs(title = "Cities in Lairmer County",
+       subtitle = "Red points: 3 Most Populous Cities") +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle
+        = element_text(hjust = 0.5)) +
+  geom_label_repel(
+    data = top_3_cities, 
+    aes(label = city, geometry = geometry), 
+    stat = "sf_coordinates", 
+    size = 3)
+
+# Save the plot to images dir
+ggsave(filename = "../images/larimer_pop_map.png", plot = larimer_pop_map, width = 8, height = 6, dpi = 600)
+```
+
