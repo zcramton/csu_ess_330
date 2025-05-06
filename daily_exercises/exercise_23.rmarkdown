@@ -1,0 +1,39 @@
+---
+title: "Exercise 23: Spatial Packages Prep"
+subtitle: 'ESS 330 - Quantitative Reasoning'
+author:
+  - name: "Zachary Cramton"
+    url: "https://zachary.cramton.com"
+    email: "ZCramton@colostate.edu"
+
+format: html
+execute:
+  echo: true
+---
+
+```{r}
+library(sf)
+library(terra)
+
+sf::sf_extSoftVersion()
+
+terra::gdal()
+```
+
+
+
+### GDAL: Geospatial Data Abstraction Library
+
+GDAL is an open-source library/software for reading, writing, and transforming geospatial data formats. It drives anything and everything spatial and enables interoperability across platforms by standardizing access to many data formats.
+
+### GEOS: Geometry Engine - Open Source
+
+GEOS is a C++ library for performing geometric operations on planar geometry objects. It was ported from the Java library Java Topology Suite (JTS). It handles topological operations like buffering, intersections, unions, and differences.
+
+### PROJ: PROJ used to be PROJ.4
+
+PROJ is a library for performing coordinate transformations. It enables conversion between geographic and projection coordinate systems. It is responsible for the mathematics behind map projections and datum shifts, ensuring that data aligns with map resources correctly.
+
+ 
+Direct access to the command line (CLI) in a functional language like R enables reproducibility with version control, automation, compute efficiency, and the ability to pass R variables through CLI tools.
+

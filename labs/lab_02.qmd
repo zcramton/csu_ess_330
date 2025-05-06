@@ -17,7 +17,7 @@ library(tidyr)
 library(here)
 
 # Data Import
-tree_dat <- read.csv(here("data", "lab_data", "tree_dat.csv"))
+tree_dat <- read.csv(here("data", "lab_data", "minnesota_tree_data", "tree_dat.csv"))
 ```
 
 ```{r}

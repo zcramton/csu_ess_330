@@ -99,3 +99,7 @@ This page links to each daily exercise completed in the course. These exercises 
 -   [Exercise 24](./daily_exercises/exercise_24.qmd){target="_blank"}
 
     -   In this assignment we practiced working with Lairmer County geospatial data.
+
+-   [Exercise 25](./daily_exercises/exercise_25.qmd){target="_blank"}
+
+    -   In this assignment we practiced working with U.S. geospatial data mapping relationships with the Mississippi River.
