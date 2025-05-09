@@ -24,35 +24,42 @@ library(USAboundariesData)
 
 eqdc <- '+proj=eqdc +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs'
 
-df <- data.frame(name = state.name, 
-                X = state.center$x, 
-                Y = state.center$y)
-df_sf_gcs <- st_as_sf(df, 
-                   coords = c("X", "Y"), 
-                   crs = 4269)
-states_pcs <- st_transform(df_sf_gcs, 5070)
 rivers <- read_sf("../data/assignment_data/majorrivers")
 MS_rivers <- rivers %>% 
   filter(SYSTEM == "Mississippi")
-MS_rivers <- st_as_sfc(MS_rivers, 
-                   coords = c("X", "Y"), 
-                   crs = 4269)
-conus_states <- setdiff(state.abb, c("AK", "HI"))
-  all_counties <- us_counties()
+MS_rivers <- st_transform(MS_rivers, 5070)
+
+all_counties <- us_counties()
 names(all_counties) <- make.unique(names(all_counties))
 conus_counties <- all_counties %>%
   filter(!(state_abbr %in% c("AK", "HI")))
+conus_counties <- st_transform(conus_counties, 5070)
 
 # counties intersecting MS river system
-mississippi_counties <- st_filter(conus_counties, MS_rivers, .predicate = st_intersects)
+ms_counties <- st_filter(conus_counties, MS_rivers, .predicate = st_intersects)
+ms_counties <- st_transform(ms_counties, 5070) 
+
+cities <- read_csv("data/uscities.csv")
+cities_sf <- st_as_sf(cities, coords = c("lng", "lat"), crs = 4269) 
+cities_sf <- st_transform (cities_sf, 5070) 
+
+cities_in_ms_counties <- st_join(cities_sf, ms_counties, join = st_intersects)
+
+# Calculate the total urban population in each county
+pop_by_county <- cities_in_ms_counties %>%
+  group_by(county_name) %>%
+  summarise(total_population = sum(population, na.rm = TRUE))
+
+ms_counties_pop <- ms_counties %>%
+  st_join(pop_by_county, by = "GEOID")
 
 # plot
-us_mississippi_river_plot <- ggplot() +
-  geom_sf(data = conus_counties, fill = "grey90", color = "white") +
-  geom_sf(data = mississippi_counties, fill = "lightblue", color = "blue") +
-  geom_sf(data = MS_rivers, color = "darkblue") +
-  labs(title = "Mississippi River Watershed") +
-  theme_minimal()
-
-us_mississippi_river_plot
+ggplot() +
+  geom_sf(data = conus_counties, color = "darkgrey", fill = "white") +
+  geom_sf(data = ms_counties_pop, aes(fill = total_population), color = NA) +
+  geom_sf(data = MS_rivers, color = "lightblue", size = 0.4) +
+  scale_fill_viridis_c (na.value = "grey80") +
+  theme_void() +
+  labs(title = "Urban Population in Counties Intersecting the Mississippi River System",
+       fill = "Urban Population")
 ```
