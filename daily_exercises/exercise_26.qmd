@@ -36,5 +36,5 @@ gg_density <- ggdensity(elev_df,
   theme_minimal()
 
 print(gg_density)
-ggsave("elevation_density_plot.png", gg_density, width = 8, height = 6)
+ggsave("../images/elevation_density_plot.png", gg_density, width = 8, height = 6)
 ```

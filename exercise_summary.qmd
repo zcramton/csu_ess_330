@@ -103,3 +103,7 @@ This page links to each daily exercise completed in the course. These exercises 
 -   [Exercise 25](./daily_exercises/exercise_25.qmd){target="_blank"}
 
     -   In this assignment we practiced working with U.S. geospatial data mapping relationships with the Mississippi River.
+    
+-   [Exercise 26](./daily_exercises/exercise_26.qmd){target="_blank"}
+    
+    -   In this assignment we worked with data from the Mississippi River Basin and mapped areas at risk of flooding based on geospatial proximity.

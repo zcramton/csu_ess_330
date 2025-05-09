@@ -39,7 +39,7 @@ conus_counties <- st_transform(conus_counties, 5070)
 ms_counties <- st_filter(conus_counties, MS_rivers, .predicate = st_intersects)
 ms_counties <- st_transform(ms_counties, 5070) 
 
-cities <- read_csv("data/uscities.csv")
+cities <- read_csv("../data/assignment_data/simplemaps_uscities_basicv1.90/uscities.csv")
 cities_sf <- st_as_sf(cities, coords = c("lng", "lat"), crs = 4269) 
 cities_sf <- st_transform (cities_sf, 5070) 
 
