@@ -1,6 +1,6 @@
 project: 
   type: website
-  output-dir: docs
+  output-dir: ../docs
   title: "CSU ESS 330 Coursework"
 
 website:

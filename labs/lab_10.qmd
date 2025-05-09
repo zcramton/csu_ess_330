@@ -48,157 +48,183 @@ states <- aoi_get(state = 'conus') %>%
 if(!requireNamespace("AOI", quietly = TRUE)){
   remotes::install_github("mikejohnson51/AOI")
 }
-countries <- aoi_get(country = c("MX", "CA", "USA")) %>%
+mx_us_can <- aoi_get(country = c("MX", "CA", "USA")) %>%
   st_transform(eqdc)
 
 # 1.4 - Get city locations from the CSV file
-cities <- read_csv(here("data", "lab_data", "simplemaps_uscities_basic", "uscities.csv"))
+uscities <- read_csv(here("data", "lab_data", "simplemaps_uscities_basic", "uscities.csv"))
 
-# Convert the data.frame to a spatial object
-cities_sf <- st_as_sf(cities, coords = c("lng", "lat"), crs = 4326) %>% 
+cities_sf <- uscities %>% 
+  st_as_sf(coords = c("lng", "lat"), crs = 4326, remove = FALSE) %>% 
+  st_transform(5070) %>% 
+  mutate
+
+states <- us_states()
+state_boundaries <- st_cast(states, "MULTILINESTRING") %>% 
   st_transform(5070)
 
-# Remove cities in AK and HI
-conus_cities_sf <- cities_sf %>%
-  filter(!state_id %in% c("AK", "HI")) %>%
-  st_transform(5070)
+cities_sf <- st_transform(cities_sf, 5070)
+state_boundaries <- st_transform(state_boundaries, 5070)
+
+cities_sf <- cities_sf %>%
+  filter(!state_id %in% c("AK", "HI", "PR"))
+
+# GCS
+df_sf_gcs <- st_as_sf(df,
+                      coords = c("X", "Y"),
+                      crs = 4269)
 ```
 
 ```{r question 2}
 # Question 2
 # 2.1 - Distance to USA Border (coastline or national) (km)
 # Convert USA state boundaries to a single MULTILINESTRING with resolved borders
-usa_border_resolved <- states %>%
-  st_union() %>%
+proj_crs <- 2163
+
+usa_border <- states %>% 
+  st_union() %>% 
   st_cast("MULTILINESTRING")
 
-# Calculate distance to the USA border
-distance_to_usa_border <- st_distance(conus_cities_sf, usa_border_resolved)
-conus_cities_sf <- conus_cities_sf %>%
-  mutate(dist_to_usa_border_m = as.numeric(distance_to_usa_border),
-         dist_to_usa_border_km = round(dist_to_usa_border_m / 1000, 1))
+cities_sf <- st_transform(cities_sf, 5070)
+usa_border <- st_transform(usa_border, 5070)
 
-# Produce a table of the five cities farthest from the USA border
-farthest_from_usa_border <- conus_cities_sf %>%
-  arrange(desc(dist_to_usa_border_m)) %>%
-  slice_head(n = 5) %>%
-  select(city, state_id, dist_to_usa_border_km) %>%
-  rename(state = state_id, distance_km = dist_to_usa_border_km)
+state_boundaries_lines <- st_cast(state_boundaries, "MULTILINESTRING")
+distance_matrix <- st_distance(cities_sf, state_boundaries_lines)
+min_distances <- apply(distance_matrix, 1, min)
 
-flextable(farthest_from_usa_border) %>%
+cities_distance <- cities_sf %>% 
+  mutate(
+    dist_to_border_m = as.numeric(st_distance(geometry, usa_border, by_element = FALSE)),
+    dist_to_border_km = round(dist_to_border_m / 1000, 1)
+  )
+
+farthest_cities_border <- cities_distance %>% 
+  arrange(desc(dist_to_border_km)) %>% 
+  slice_head(n = 5) %>% 
+  select(city, state_name = state_id, distance_km = dist_to_border_km)
+
+farthest_cities_border %>% 
+  flextable() %>% 
   set_header_labels(
     city = "City",
-    state = "State",
+    state_name = "State",
     distance_km = "Distance to USA Border (km)"
-  ) %>%
-  add_header_row(values = "Five Cities Farthest from the US National Border", colwidths = ncol(farthest_from_usa_border)) %>%
+  ) %>% 
   autofit()
 
 # 2.2 - Distance to States (km)
-# Convert USA state boundaries to a MULTILINESTRING preserving individual state borders
-state_boundaries_lines <- states %>%
+states_proj <- st_transform(states, 5070)
+states_combined <- st_combine(states_proj)
+cities <- st_cast(states_combined, "MULTILINESTRING")
+
+state_boundaries_preserved <- states_proj %>% 
+  st_combine() %>% 
   st_cast("MULTILINESTRING")
 
-# Calculate distance to the nearest state border
-distance_to_state_border <- st_distance(cities_sf, state_boundaries_lines)
-min_distance_to_state_border <- apply(distance_to_state_border, 1, min)
-conus_cities_sf <- conus_cities_sf %>%
-  mutate(dist_to_state_border_m = as.numeric(min_distance_to_state_border),
-         dist_to_state_border_km = round(dist_to_state_border_m / 1000, 1))
+cities_sf <- st_transform(cities_sf, 5070)
+state_boundaries_lines <- st_transform(state_boundaries_lines, 5070)
 
-# Produce a table of the five cities farthest from a state border
-farthest_from_state_border <- conus_cities_sf %>%
-  arrange(desc(dist_to_state_border_m)) %>%
-  slice_head(n = 5) %>%
-  select(city, state_id, dist_to_state_border_km) %>%
-  rename(state = state_id, distance_km = dist_to_state_border_km)
+distance_matrix <- st_distance(cities_sf, state_boundaries_lines)
 
-flextable(farthest_from_state_border) %>%
+min_distances <- apply(distance_matrix, 1, min)
+
+cities_distance <- cities_sf %>%
+  mutate(
+    dist_to_state_border_m = as.numeric(min_distances),
+    dist_to_state_border_km = round(dist_to_state_border_m / 1000, 1)  
+  )
+
+top5_farthest <- cities_distance %>% 
+  arrange(desc(dist_to_state_border_km)) %>% 
+  slice_head(n = 5) %>% 
+  select(city, state_id, dist_to_state_border_km)
+
+flextable(top5_farthest) %>% 
   set_header_labels(
     city = "City",
-    state = "State",
-    distance_km = "Distance to State Border (km)"
-  ) %>%
-  add_header_row(values = "Five Cities Farthest from the Nearest US State Borders", colwidths = ncol(farthest_from_state_border)) %>%
+    state_id = "State",
+    dist_to_state_border_km = "Distance to State Border(km)"
+  ) %>% 
   autofit()
 
 # 2.3 - Distance to Mexico (km)
 # Isolate Mexico border and convert to MULTILINESTRING
-mexico_border <- countries %>%
-  filter(admin == "Mexico") %>%
+mexico <- mx_us_can %>% 
+  filter(admin == "Mexico") %>% 
+  st_transform(5070)
+
+mexico_border <- mexico %>% 
   st_cast("MULTILINESTRING")
 
-# Calculate distance to the Mexican border
-distance_to_mexico <- st_distance(conus_cities_sf, mexico_border)
-conus_cities_sf <- conus_cities_sf %>%
-  mutate(dist_to_mexico_m = as.numeric(distance_to_mexico),
+dist_to_mexico <- st_distance(cities_sf, mexico_border)
+min_dist_mexico <- apply(dist_to_mexico, 1, min)
+
+cities_distance <- cities_sf %>% 
+  mutate(dist_to_mexico_m = as.numeric(min_dist_mexico),
          dist_to_mexico_km = round(dist_to_mexico_m / 1000, 1))
 
-# Produce a table of the five cities farthest from the Mexican border
-farthest_from_mexico <- conus_cities_sf %>%
-  arrange(desc(dist_to_mexico_m)) %>%
-  slice_head(n = 5) %>%
-  select(city, state_id, dist_to_mexico_km) %>%
-  rename(state = state_id, distance_km = dist_to_mexico_km)
+farthest_mexico <- cities_distance %>% 
+  arrange(desc(dist_to_mexico_km)) %>% 
+  slice_head(n = 5) %>% 
+  select(city, state_name = state_id, distance_km = dist_to_mexico_km)
 
-flextable(farthest_from_mexico) %>%
+flextable(farthest_mexico) %>% 
   set_header_labels(
     city = "City",
-    state = "State",
+    state_name = "State",
     distance_km = "Distance to Mexican Border (km)"
-  ) %>%
-  add_header_row(values = "Five Cities Farthest from the Mexican Border", colwidths = ncol(farthest_from_mexico)) %>%
+  ) %>% 
   autofit()
 
 # 2.4 - Distance to Canada (km)
-# Isolate Canada border and convert to MULTILINESTRING
-canada_border <- countries %>%
-  filter(admin == "Canada") %>%
-  st_cast("MULTILINESTRING")
+canada <- mx_us_can %>% 
+  filter(admin == "Canada") %>% 
+  st_transform(5070)
 
-# Calculate distance to the Canadian border
-distance_to_canada <- st_distance(conus_cities_sf, canada_border)
-conus_cities_sf <- conus_cities_sf %>%
-  mutate(dist_to_canada_m = as.numeric(distance_to_canada),
-         dist_to_canada_km = round(dist_to_canada_m / 1000, 1))
+canada_border <- st_cast(canada, "MULTILINESTRING")
 
-# Produce a table of the five cities farthest from the Canadian border
-farthest_from_canada <- conus_cities_sf %>%
-  arrange(desc(dist_to_canada_m)) %>%
-  slice_head(n = 5) %>%
-  select(city, state_id, dist_to_canada_km) %>%
-  rename(state = state_id, distance_km = dist_to_canada_km)
+dist_matrix_canada <- st_distance(cities_sf, canada_border)
+min_distances_canada <- apply(dist_matrix_canada, 1, min)
+cities_distance <- cities_sf %>% 
+  mutate(
+    dist_to_canada_m = as.numeric(min_distances_canada),
+    dist_to_canada_km = round(dist_to_canada_m / 1000, 1)
+  )
 
-flextable(farthest_from_canada) %>%
+farthest_canada <- cities_distance %>% 
+  arrange(desc(dist_to_canada_km)) %>% 
+  slice_head(n = 5) %>% 
+  select(city, state_name = state_id, distance_km = dist_to_canada_km)
+
+flextable(farthest_canada) %>% 
   set_header_labels(
     city = "City",
-    state = "State",
-    distance_km = "Distance to Canadian Border (km)"
-  ) %>%
-  add_header_row(values = "Five Cities Farthest from the Canadian Border", colwidths = ncol(farthest_from_canada)) %>%
+    state_name = "State",
+    distance_km = "DIstance to Canadian Border (km)"
+  ) %>% 
   autofit()
 ```
 
 ```{r question 3}
 # Question 3
 # 3.1 Data
-world <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf") %>%
-  st_transform(5070)  
-continents <- world %>%
-  filter(continent %in% c("North America", "South America", "Europe"))
+world <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf") 
+continents <- world %>% 
+  filter(continent %in% c("North America", "South America", "Europe")) 
 
-conus_outline <- states %>%
-  st_union() %>%
-  st_transform(5070)  
+states <- USAboundaries::us_states()
+conus_states <- states %>% 
+  filter(!state_abbr %in% c("AK", "HI", "PR"))
 
-top10_cities <- conus_cities_sf %>%
-  arrange(desc(population)) %>%
+conus_outline <- st_union(conus_states)
+
+top10_cities <- cities_sf %>% 
+  arrange(desc(population)) %>% 
   slice_head(n = 10)
 
 ggplot() +
   geom_sf(data = continents, fill = "lightgrey", color = "black", lty = "solid", size = 0.2) +
-  geom_sf(data = conus_outline, fill = NA, color = "black", lty = "dashed", size = 0.5) +
-  geom_sf(data = states %>% st_transform(5070), fill = "lightblue", color = "black", lty = "solid", size = 0.3) +  
+  geom_sf(data = conus_states, fill = "lightpink", color = "black", lty = "solid", size = 0.3) +
   geom_label_repel(
     data = top10_cities,
     aes(label = city, geometry = geometry),
@@ -208,98 +234,88 @@ ggplot() +
     box.padding = 0.3,
     point.padding = 0.2
   ) +
-  coord_sf(xlim = st_bbox(states %>% st_transform(5070))[c(1, 3)], ylim = st_bbox(states %>% st_transform(5070))[c(2, 4)], expand = FALSE) +  
-  theme_void() +
-  labs(
-    title = "Continents, CONUS, State Boundaries, and Top 10 Largest USA Cities",
-    caption = "Data sources: Natural Earth, USAboundaries, uscities.csv"
-  )
-
-# 3.2 City Distance from the Border
-usa <- aoi_get(country = "USA") %>%
-  st_transform(5070)  
-usa_border <- st_cast(usa, "MULTILINESTRING") %>% 
-  st_transform(5070)
-
-distance_matrix_usa <- st_distance(cities_sf, usa_border)
-min_distances_usa_km <- apply(distance_matrix_usa, 1, min) / 1000
-
-cities_with_usa_dist <- cities_sf %>%
-  mutate(dist_to_usa_border_km = as.numeric(min_distances_usa_km))
-
-top5_farthest_usa <- cities_with_usa_dist %>%
-  arrange(desc(dist_to_usa_border_km)) %>%
-  slice_head(n = 5)
-
-ggplot() +
-  geom_sf(data = states %>% st_transform(5070), fill = "lightgrey", color = "black", size = 0.3) +  
-  geom_sf(data = cities_with_usa_dist, aes(color = dist_to_usa_border_km), size = 1) +
-  scale_color_viridis_c(name = "Distance to National Border (km)", option = "plasma") +
-  geom_sf(data = top5_farthest_usa, color = "black", fill = "darkblue", size = 2, shape = 21, stroke = 0.5) +
-  geom_label_repel(
-    data = top5_farthest_usa,
-    aes(label = city, geometry = geometry),
-    stat = "sf_coordinates",
-    min.segment.length = 0,
-    size = 3,
-    box.padding = 0.3,
-    point.padding = 0.2
-  ) +
-  coord_sf(xlim = st_bbox(states %>% st_transform(5070))[c(1, 3)], ylim = st_bbox(states %>% st_transform(5070))[c(2, 4)], expand = FALSE) +  
-  theme_void() +
-  labs(
-    title = "USA Cities by Distance from the National Border",
-    subtitle = "Top 5 Farthest Cities Highlighted and Labeled",
-    caption = "Data: uscities.csv, USAboundaries"
-  )
-
-# 3.3 City Distance from Nearest State
-states_plot <- us_states() %>%
-  st_transform(5070)
-
-state_borders_plot <- states_plot %>%
-  st_cast("MULTILINESTRING")
-
-distance_matrix_state <- st_distance(cities_sf %>% st_transform(5070), state_borders_plot)
-min_distances_state_km <- apply(distance_matrix_state, 1, min) / 1000
-
-cities_with_state_dist <- cities_sf %>%
-  st_transform(5070) %>%
-  mutate(dist_to_state_border_km = as.numeric(min_distances_state_km))
-
-top5_farthest_state <- cities_with_state_dist %>%
-  arrange(desc(dist_to_state_border_km)) %>%
-  slice_head(n = 5)
-
-ggplot() +
-  geom_sf(data = continents, fill = "lightgrey", color = "black", lty = "solid", size = 0.2) +
-  geom_sf(data = conus_outline, fill = NA, color = "black", lty = "dashed", size = 0.5) +
-  geom_sf(data = conus_states, fill = "lightgrey", color = "black", lty = "solid", size = 0.3) + # Ensure 'conus_states' has a fill
-  geom_sf(data = cities_with_state_dist, aes(color = dist_to_state_border_km), size = 1) +
-scale_color_viridis_c(name = "Distance to State Border (km)") +
-  geom_label_repel(
-    data = top10_cities %>% st_transform(5070),
-    aes(label = city, geometry = geometry),
-    stat = "sf_coordinates",
-    min.segment.length = 0,
-    size = 3,
-    box.padding = 0.3,
-    point.padding = 0.2
-  ) +
-    geom_label_repel(
-    data = top5_farthest_state,
-    aes(label = city, geometry = geometry),
-    stat = "sf_coordinates",
-    min.segment.length = 0,
-    fill = "lightyellow",
-    size = 3,
-    box.padding = 0.3,
-    point.padding = 0.2
-  ) +
   coord_sf(xlim = c(-130, -60), ylim = c(20, 60), expand = FALSE) +
   theme_void() +
   labs(
-    title = "USA Cities by Their Distance From the Nearest State Border",
+    title = "Top 10 Largest Cities (by population) in the Continental US",
+    caption = "Data Sources: Natural Earth, USAboundaries, uscities.csv"
+  )
+
+
+# 3.2 City Distance from the Border
+usa <- aoi_get(country = "USA")
+usa_border <- st_cast(usa, "MULTILINESTRING")
+usa_border <- st_transform(usa_border, 5070) 
+
+distance_matrix <- st_distance(cities_sf, usa_border)
+min_distances_km <- apply(distance_matrix, 1, min) / 1000 
+cities_with_dist <- cities_sf %>%
+  mutate(dist_to_border_km = as.numeric(min_distances_km))
+
+ggplot() +
+  geom_sf(data = continents, fill = "lightgrey", color = "black", lty = "solid", size = 0.2) +
+  geom_sf(data = conus_outline, fill = NA, color = "black", lty = "dashed", size = 0.3) +
+  geom_sf(data = usa_border, color = "black", size = 0.6, lty = "solid") +
+  # cities dist
+  geom_sf(data = conus_states, fill = "white", color = "black", lty = "solid", size = 0.3) +
+  geom_sf(data = cities_with_dist, aes(color = cities_distance$dist_to_border_km), size = 1, alpha = 0.6) +
+  scale_color_viridis_c("cividis", name = "Distance to Border (km)", option = "plasma") +
+  geom_sf(data = farthest_cities_border, color = "black", fill = "darkblue", size = 2, shape = 21, stroke = 0.5) +
+  geom_label_repel(
+    data = farthest_cities_border, 
+    aes(label = city, geometry = geometry), 
+    stat = "sf_coordinates",
+    min.segment.length = 0,
+    fill = "pink",
+    size = 3,
+    box.padding = 0.3,
+    point.padding = 0.2
+  ) +
+  geom_sf(data = usa_border, fill = NA, lty = "solid", size = 0.5) +
+  coord_sf(xlim = c(-130, -60), ylim = c(20, 60), expand = FALSE) +
+  theme_void() +
+  labs(
+    title = "USA Cities by Their Distance From the National Border",
+    subtitle = "Top 5 Farthest Cities Highlighted and Labeled",
+    caption = "Data: Natural Earth, USAboundaries, uscities.csv"
+  )
+
+# 3.3 City Distance from Nearest State
+states <- us_states()
+state_borders <- states %>%
+  st_cast("MULTILINESTRING") %>%
+  st_transform(5070)
+
+distance_matrix <- st_distance(cities_sf, state_borders)
+min_distances_km <- apply(distance_matrix, 1, min) / 1000 
+
+cities_with_dist <- cities_sf %>%
+  mutate(dist_to_state_border_km = as.numeric(min_distances_km))
+
+ggplot() +
+  geom_sf(data = continents, fill = "lightgrey", color = "black", lty = "solid", size = 0.2) +
+  geom_sf(data = conus_outline, fill = NA, color = "black", lty = "dashed", size = 0.3) +
+  geom_sf(data = usa_border, color = "black", size = 0.6, lty = "solid") +
+  # cities dist
+  geom_sf(data = conus_states, fill = "white", color = "black", lty = "solid", size = 0.3) +
+  geom_sf(data = cities_with_dist, aes(color = cities_distance$dist_to_border_km), size = 1, alpha = 0.6) +
+  scale_color_viridis_c("cividis", name = "Distance to Border (km)", option = "plasma") +
+  geom_sf(data = farthest_cities_border, color = "black", fill = "darkblue", size = 2, shape = 21, stroke = 0.5) +
+  geom_label_repel(
+    data = farthest_cities_border, 
+    aes(label = city, geometry = geometry), 
+    stat = "sf_coordinates",
+    min.segment.length = 0,
+    fill = "pink",
+    size = 3,
+    box.padding = 0.3,
+    point.padding = 0.2
+  ) +
+  geom_sf(data = usa_border, fill = NA, lty = "solid", size = 0.5) +
+  coord_sf(xlim = c(-130, -60), ylim = c(20, 60), expand = FALSE) +
+  theme_void() +
+  labs(
+    title = "USA Cities by Their Distance From the National Border",
     subtitle = "Top 5 Farthest Cities Highlighted and Labeled",
     caption = "Data: Natural Earth, USAboundaries, uscities.csv"
   )
@@ -346,19 +362,75 @@ ggplot() +
     caption = "Data source: uscities.csv, USAboundaries, Natural Earth"
   )
 
+conus_cities <- cities_sf %>%
+  filter(!state_id %in% c("AK", "HI"))
+
+usa_border <- st_transform(usa_border, st_crs(conus_cities))
+mexico_border <- st_transform(mexico_border, st_crs(conus_cities))
+canada_border <- st_transform(canada_border, st_crs(conus_cities))
+
+cities_proj <- st_transform(cities_sf, proj_crs)
+mexico_proj <- st_transform(mexico_border, proj_crs)
+canada_proj <- st_transform(canada_border, proj_crs)
+
+usa_border_proj <- cities_sf %>%
+  filter(!state_id %in% c("AK", "HI"))
+
+dist_mexico_km <- apply(st_distance(cities_proj, mexico_proj), 1, min) / 1000
+dist_canada_km <- apply(st_distance(cities_proj, canada_proj), 1, min) / 1000
+
+cities_with_dist <- cities_proj %>%
+  mutate(
+    dist_to_mexico = dist_mexico_km,
+    dist_to_canada = dist_canada_km,
+    dist_diff = abs(dist_to_mexico - dist_to_canada)
+  )
+
+middle_band <- cities_with_dist %>%
+  filter(dist_diff <= 100)
+
+middle_top5 <- middle_band %>%
+  arrange(desc(population)) %>%
+  slice_head(n = 5)
+
+ggplot(data = cities_with_dist) +  # Changed from cities_distance to cities_with_dist
+  geom_sf(data = continents, fill = "lightgrey", color = "black", lty = "solid", size = 0.2) +
+  geom_sf(data = conus_outline, fill = NA, color = "black", lty = "dashed", size = 0.5) +
+  geom_sf(data = cities_with_dist, aes(color = dist_diff), fill = NA) + 
+  geom_sf(aes(color = dist_diff), size = 1) +
+  gghighlight(dist_diff <= 100, use_direct_label = FALSE) +
+  geom_sf(data = middle_top5, size = 2, shape = 21, fill = "red") +
+  geom_label_repel(
+    data = middle_top5,
+    aes(label = city, geometry = geometry),
+    stat = "sf_coordinates",
+    size = 3,
+    box.padding = 0.3,
+    point.padding = 0.2
+  ) +
+  coord_sf(xlim = c(-130, -60), ylim = c(20, 60), expand = FALSE) +
+  theme_void() +
+  scale_color_viridis_c(name = "Equidistant Distance\n(Mexico vs Canada)") +
+  labs(
+    title = "Cities Approximately Equidistant (±100 km) from Mexico and Canada",
+    subtitle = "Top 5 most populous cities in this zone labeled",
+    caption = "Data source: Natural Earth, USAboundaries, uscities.csv"
+  )
+
 ```
-3.3 Wasn't working after 2 hours of troubleshooting... I called it quits.
 
 ```{r question 4}
 # Question 4
 # 4.1 Quantifying Border Zone
+dist_matrix_usa <- st_distance(cities_sf, usa_border)
+min_distances <- apply(dist_matrix_usa, 1, min)
 threshold_km <- 160
 
-cities_distance <- cities_sf %>% # Use the same cities_distance
-  mutate(dist_to_national_border_m = as.numeric(min_distances_m),
+cities_distance <- cities_sf %>%
+  mutate(dist_to_national_border_m = as.numeric(min_distances),
          dist_to_national_border_km = round(dist_to_national_border_m / 1000, 1))
 
-border_zone <- cities_distance %>%
+border_zone <- cities_distance %>% 
   filter(dist_to_national_border_km <= threshold_km)
 
 num_cities_in_zone <- nrow(border_zone)
@@ -385,13 +457,27 @@ flextable(summary_df) %>%
   autofit()
 
 # 4.2 Mapping Border Zone
-top10_danger <- border_zone %>%
+conus_cities <- cities_sf %>%
+  filter(!state_id %in% c("AK", "HI"))
+
+distance_matrix <- st_distance(conus_cities, usa_border)
+min_distances <- apply(distance_matrix, 1, min)
+
+conus_cities <- conus_cities %>%
+  mutate(
+    dist_to_national_border_m = as.numeric(min_distances),
+    dist_to_national_border_km = round(dist_to_national_border_m / 1000, 1)
+  )
+
+danger_zone <- conus_cities %>%
+  filter(dist_to_national_border_km <= threshold_km)
+
+top10_danger <- danger_zone %>%
   arrange(desc(population)) %>%
   slice_head(n = 10)
 
-ggplot() +
-  geom_sf(data = us_states(resolution = "low") %>% st_transform(st_crs(cities_distance)), fill = "lightgrey", color = "black", size = 0.3) + # Using us_states for a reliable base map
-  geom_sf(data = cities_distance, aes(color = dist_to_national_border_km), size = 1) +
+ggplot(data = conus_cities) +
+  geom_sf(aes(color = dist_to_national_border_km), size = 1) +
   scale_color_gradient(low = "orange", high = "darkred", name = "Distance to National Border (km)") +
   gghighlight(dist_to_national_border_km <= threshold_km, use_direct_label = FALSE) +
   geom_label_repel(
@@ -403,12 +489,9 @@ ggplot() +
     point.padding = 0.2
   ) +
   theme_minimal() +
-  coord_sf(xlim = st_bbox(states %>% st_transform(st_crs(cities_distance)))[c(1, 3)],
-           ylim = st_bbox(states %>% st_transform(st_crs(cities_distance)))[c(2, 4)],
-           expand = FALSE) +
   labs(
     title = "Cities Within 100-Mile Danger Zone of U.S. National Border",
-    subtitle = "Top 10 most populous cities in the danger zone labeled",
+    subtitle = "Top 10 most populous cities within the Danger Zone",
     caption = "Data source: uscities.csv, USAboundaries, Natural Earth"
   )
 
