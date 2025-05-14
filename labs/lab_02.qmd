@@ -10,7 +10,7 @@ format: html
 execute:
   echo: true
 ---
-```{r, cache=TRUE}
+```{r}
 library(quarto)
 library(dplyr)
 library(tidyr)
